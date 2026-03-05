@@ -1,49 +1,50 @@
 import QtQuick
-import QtQuick.Layouts
+import QtQuick.Controls
 
 Item {
     id: root
 
+    required property int index
     required property string role
     required property string content
     required property bool isStreaming
 
     width: ListView.view ? ListView.view.width : 400
-    height: bubble.height + Theme.spacingSm
+    implicitHeight: bubble.height + Theme.spacingXs
 
     readonly property bool isUser: role === "user"
 
+    // User bubbles: alternateBase, Assistant bubbles: base
     Rectangle {
         id: bubble
 
         anchors {
-            right: isUser ? parent.right : undefined
             left: isUser ? undefined : parent.left
-            rightMargin: Theme.spacingMd
-            leftMargin: Theme.spacingMd
+            right: isUser ? parent.right : undefined
+            leftMargin: isUser ? parent.width * 0.2 : Theme.spacingMd
+            rightMargin: isUser ? Theme.spacingMd : parent.width * 0.2
         }
 
-        width: Math.min(msgText.implicitWidth + Theme.spacingLg * 2,
-                        root.width * 0.8)
+        width: Math.min(msgText.implicitWidth + Theme.spacingLg,
+                        parent.width - (isUser ? parent.width * 0.2 : 0) - Theme.spacingMd)
         height: msgText.implicitHeight + Theme.spacingMd * 2
         radius: Theme.radiusLg
-        color: isUser ? Theme.userBubble : Theme.bgCard
+        color: isUser ? root.palette.alternateBase : root.palette.base
 
         Text {
             id: msgText
-
             anchors {
-                fill: parent
+                left: parent.left
+                right: parent.right
+                top: parent.top
                 margins: Theme.spacingMd
             }
-
-            text: content + (isStreaming ? " _" : "")
-            textFormat: isUser ? Text.PlainText : Text.MarkdownText
+            text: root.content + (root.isStreaming ? " \u258c" : "")
+            textFormat: root.isUser ? Text.PlainText : Text.MarkdownText
             wrapMode: Text.Wrap
-            color: Theme.textPrimary
+            color: root.palette.text
             font.pixelSize: Theme.fontMd
-            lineHeight: 1.5
-
+            lineHeight: 1.4
             onLinkActivated: (link) => Qt.openUrlExternally(link)
         }
     }

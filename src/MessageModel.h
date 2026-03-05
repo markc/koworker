@@ -34,7 +34,7 @@ public:
     Q_INVOKABLE void finalise(int index);
     Q_INVOKABLE void clear();
 
-    int lastIndex() const;
+    Q_INVOKABLE int lastIndex() const;
 
 private:
     QList<Message> m_messages;

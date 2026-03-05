@@ -1,6 +1,5 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
-#include <QQuickStyle>
 
 int main(int argc, char *argv[])
 {
@@ -8,8 +7,7 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("koworker"));
     app.setOrganizationName(QStringLiteral("koworker"));
     app.setApplicationVersion(QStringLiteral("0.1.0"));
-
-    QQuickStyle::setStyle(QStringLiteral("Basic"));
+    app.setDesktopFileName(QStringLiteral("koworker"));
 
     QQmlApplicationEngine engine;
 

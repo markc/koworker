@@ -2,11 +2,12 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Item {
+Rectangle {
     id: root
 
     required property var messageModel
     required property var client
+    color: palette.window
 
     ColumnLayout {
         anchors.fill: parent
@@ -20,35 +21,31 @@ Item {
             Layout.fillHeight: true
             model: root.messageModel
             clip: true
-            spacing: 0
+            spacing: Theme.spacingXs
+            topMargin: Theme.spacingMd
+            bottomMargin: Theme.spacingMd
 
-            delegate: MessageDelegate {
-                role: model.role
-                content: model.content
-                isStreaming: model.isStreaming
-            }
+            delegate: MessageDelegate { }
 
             onCountChanged: {
                 Qt.callLater(() => messageList.positionViewAtEnd())
             }
 
-            // Empty state
             Label {
                 anchors.centerIn: parent
                 visible: messageList.count === 0
                 text: "Start a conversation"
-                color: Theme.textMuted
+                opacity: 0.3
                 font.pixelSize: Theme.fontLg
             }
         }
 
         // Error bar
         Rectangle {
-            id: errorBar
             Layout.fillWidth: true
-            height: errorBar.visible ? errorLabel.implicitHeight + Theme.spacingMd * 2 : 0
-            color: "#4d331a"
             visible: errorLabel.text.length > 0
+            implicitHeight: errorLabel.implicitHeight + Theme.spacingMd * 2
+            color: Qt.rgba(0.6, 0.2, 0.1, 0.3)
 
             Label {
                 id: errorLabel
@@ -56,9 +53,9 @@ Item {
                     fill: parent
                     margins: Theme.spacingMd
                 }
-                color: "#ffaa55"
-                font.pixelSize: Theme.fontSm
                 wrapMode: Text.Wrap
+                color: Qt.rgba(1.0, 0.5, 0.3, 1.0)
+                font.pixelSize: Theme.fontSm
             }
 
             MouseArea {
@@ -67,83 +64,59 @@ Item {
             }
         }
 
-        // Separator
+        // Input area — palette.base (darker, like kcalc display)
         Rectangle {
             Layout.fillWidth: true
-            height: 1
-            color: Theme.border
-        }
+            color: palette.base
 
-        // Input bar
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.margins: Theme.spacingMd
-            spacing: Theme.spacingSm
+            implicitHeight: inputRow.implicitHeight + Theme.spacingMd * 2
 
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.maximumHeight: 120
+            RowLayout {
+                id: inputRow
+                anchors {
+                    fill: parent
+                    margins: Theme.spacingMd
+                }
+                spacing: Theme.spacingSm
 
-                TextArea {
-                    id: inputField
+                ScrollView {
+                    Layout.fillWidth: true
+                    Layout.maximumHeight: 120
 
-                    placeholderText: "Type a message... (Ctrl+Enter to send)"
-                    wrapMode: TextArea.Wrap
-                    color: Theme.textPrimary
-                    placeholderTextColor: Theme.textMuted
-                    font.pixelSize: Theme.fontMd
-                    enabled: !root.client.running
+                    TextArea {
+                        id: inputField
+                        placeholderText: "Type a message... (Ctrl+Enter to send)"
+                        wrapMode: TextArea.Wrap
+                        font.pixelSize: Theme.fontMd
+                        enabled: !root.client.running
+                        background: null
 
-                    background: Rectangle {
-                        radius: Theme.radiusMd
-                        color: Theme.bgInput
-                        border.color: inputField.activeFocus ? Theme.accent : Theme.border
-                        border.width: 1
-                    }
+                        Keys.onReturnPressed: (event) => {
+                            if (event.modifiers & Qt.ControlModifier) {
+                                sendMessage()
+                            } else {
+                                event.accepted = false
+                            }
+                        }
 
-                    Keys.onReturnPressed: (event) => {
-                        if (event.modifiers & Qt.ControlModifier) {
-                            sendMessage()
-                        } else {
-                            event.accepted = false
+                        Keys.onEscapePressed: {
+                            if (root.client.running) root.client.cancel()
                         }
                     }
-
-                    Keys.onEscapePressed: {
-                        if (root.client.running) root.client.cancel()
-                    }
-                }
-            }
-
-            Button {
-                id: actionButton
-
-                text: root.client.running ? "Stop" : "Send"
-                enabled: root.client.running || inputField.text.trim().length > 0
-
-                contentItem: Text {
-                    text: actionButton.text
-                    color: actionButton.enabled ? Theme.textPrimary : Theme.textMuted
-                    font.pixelSize: Theme.fontMd
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
                 }
 
-                background: Rectangle {
-                    implicitWidth: 72
-                    implicitHeight: 36
-                    radius: Theme.radiusMd
-                    color: {
-                        if (!actionButton.enabled) return Theme.bgInput
-                        return root.client.running ? Theme.accentMuted : Theme.accent
-                    }
-                }
+                ToolButton {
+                    icon.name: root.client.running ? "process-stop" : "document-send"
+                    enabled: root.client.running || inputField.text.trim().length > 0
+                    ToolTip.text: root.client.running ? "Stop" : "Send (Ctrl+Enter)"
+                    ToolTip.visible: hovered
 
-                onClicked: {
-                    if (root.client.running) {
-                        root.client.cancel()
-                    } else {
-                        sendMessage()
+                    onClicked: {
+                        if (root.client.running) {
+                            root.client.cancel()
+                        } else {
+                            sendMessage()
+                        }
                     }
                 }
             }
@@ -158,7 +131,6 @@ Item {
 
         function onTokenReceived(token) {
             if (root.streamingIndex < 0) {
-                // Start a new assistant message
                 root.messageModel.appendMessage("assistant", "")
                 root.streamingIndex = root.messageModel.lastIndex()
             }

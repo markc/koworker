@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qt.labs.settings
+import QtCore
 import Koworker
 
 ApplicationWindow {
@@ -13,7 +13,6 @@ ApplicationWindow {
     minimumHeight: 400
     visible: true
     title: "koworker"
-    color: Theme.bg
 
     MessageModel {
         id: messages
@@ -23,7 +22,6 @@ ApplicationWindow {
         id: client
     }
 
-    // Load saved settings into client on startup
     Settings {
         id: appSettings
         property string apiKey
@@ -37,37 +35,27 @@ ApplicationWindow {
         client.systemPrompt = appSettings.systemPrompt
     }
 
-    // Settings dialog
     SettingsDialog {
         id: settingsDialog
         client: client
         anchors.centerIn: parent
     }
 
-    // Ctrl+, for settings
-    Shortcut {
-        sequence: "Ctrl+,"
-        onActivated: settingsDialog.open()
-    }
-
-    // Ctrl+N for new session
+    Shortcut { sequence: "Ctrl+,"; onActivated: settingsDialog.open() }
     Shortcut {
         sequence: "Ctrl+N"
-        onActivated: {
-            client.newSession()
-            messages.clear()
-        }
+        onActivated: { client.newSession(); messages.clear() }
     }
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Sidebar
+        // Sidebar — palette.base (darkest)
         Rectangle {
             Layout.preferredWidth: Theme.sidebarWidth
             Layout.fillHeight: true
-            color: Theme.bgSurface
+            color: palette.base
 
             ColumnLayout {
                 anchors.fill: parent
@@ -76,116 +64,73 @@ ApplicationWindow {
                 // Header
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.margins: Theme.spacingMd
+                    Layout.margins: Theme.spacingSm
+                    Layout.leftMargin: Theme.spacingMd
 
                     Label {
                         text: "koworker"
-                        font.pixelSize: Theme.fontXl
+                        font.pixelSize: Theme.fontLg
                         font.bold: true
-                        color: Theme.textPrimary
                         Layout.fillWidth: true
                     }
 
-                    // Settings button
-                    Button {
-                        flat: true
+                    ToolButton {
+                        icon.name: "configure"
                         onClicked: settingsDialog.open()
-
-                        contentItem: Text {
-                            text: "\u2699"
-                            color: Theme.textMuted
-                            font.pixelSize: Theme.fontLg
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: 32
-                            implicitHeight: 32
-                            radius: Theme.radiusSm
-                            color: parent.hovered ? Theme.bgCard : "transparent"
-                        }
+                        ToolTip.text: "Settings (Ctrl+,)"
+                        ToolTip.visible: hovered
                     }
 
-                    // New session button
-                    Button {
-                        flat: true
-                        onClicked: {
-                            client.newSession()
-                            messages.clear()
-                        }
-
-                        contentItem: Text {
-                            text: "+"
-                            color: Theme.textPrimary
-                            font.pixelSize: Theme.fontXl
-                            horizontalAlignment: Text.AlignHCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: 32
-                            implicitHeight: 32
-                            radius: Theme.radiusSm
-                            color: parent.hovered ? Theme.bgCard : "transparent"
-                        }
+                    ToolButton {
+                        icon.name: "list-add"
+                        onClicked: { client.newSession(); messages.clear() }
+                        ToolTip.text: "New session (Ctrl+N)"
+                        ToolTip.visible: hovered
                     }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 1
-                    color: Theme.border
                 }
 
                 // Connection status
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.margins: Theme.spacingMd
+                    Layout.leftMargin: Theme.spacingMd
+                    Layout.rightMargin: Theme.spacingMd
+                    Layout.topMargin: Theme.spacingXs
+                    Layout.bottomMargin: Theme.spacingSm
                     spacing: Theme.spacingSm
 
                     Rectangle {
-                        width: 8; height: 8
-                        radius: 4
-                        color: client.apiKey.length > 0 ? "#55cc55" : "#cc5555"
+                        width: 8; height: 8; radius: 4
+                        color: client.apiKey.length > 0
+                            ? Qt.rgba(0.3, 0.8, 0.3, 1.0)
+                            : Qt.rgba(0.8, 0.3, 0.3, 1.0)
                     }
 
                     Label {
                         text: client.apiKey.length > 0 ? client.model : "No API key"
-                        color: Theme.textMuted
+                        opacity: 0.5
                         font.pixelSize: Theme.fontSm
-                        elide: Text.ElideRight
+                        elide: Text.ElideMiddle
                         Layout.fillWidth: true
                     }
                 }
 
+                // Sessions list area — palette.alternateBase (mid tone)
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 1
-                    color: Theme.border
-                }
-
-                // Sessions placeholder
-                Item {
-                    Layout.fillWidth: true
                     Layout.fillHeight: true
+                    color: palette.alternateBase
 
                     Label {
                         anchors.centerIn: parent
                         text: "No sessions yet"
-                        color: Theme.textMuted
+                        opacity: 0.3
                         font.pixelSize: Theme.fontSm
                     }
                 }
             }
         }
 
-        // Sidebar / chat separator
-        Rectangle {
-            Layout.fillHeight: true
-            width: 1
-            color: Theme.border
-        }
-
-        // Main chat area
+        // Main chat area — palette.window (standard)
         ChatView {
             Layout.fillWidth: true
             Layout.fillHeight: true
