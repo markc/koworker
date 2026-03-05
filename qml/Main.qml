@@ -22,6 +22,10 @@ ApplicationWindow {
         id: client
     }
 
+    HistoryStore {
+        id: history
+    }
+
     Settings {
         id: appSettings
         property string apiKey
@@ -33,6 +37,7 @@ ApplicationWindow {
         client.apiKey = appSettings.apiKey
         client.model = appSettings.model
         client.systemPrompt = appSettings.systemPrompt
+        refreshSessions()
     }
 
     SettingsDialog {
@@ -42,16 +47,49 @@ ApplicationWindow {
     }
 
     Shortcut { sequence: "Ctrl+,"; onActivated: settingsDialog.open() }
-    Shortcut {
-        sequence: "Ctrl+N"
-        onActivated: { client.newSession(); messages.clear() }
+    Shortcut { sequence: "Ctrl+N"; onActivated: newSession() }
+
+    // Current session tracking
+    property string currentSessionId: ""
+
+    function newSession() {
+        currentSessionId = ""
+        client.newSession()
+        messages.clear()
+        refreshSessions()
+    }
+
+    function refreshSessions() {
+        sessionList.model = history.listSessions()
+    }
+
+    function loadSession(sessionId) {
+        const msgs = history.loadSession(sessionId)
+        messages.clear()
+        client.newSession()
+
+        for (let i = 0; i < msgs.length; i++) {
+            const m = msgs[i]
+            messages.appendMessage(m.role, m.content)
+            client.restoreMessage(m.role, m.content)
+        }
+
+        currentSessionId = sessionId
+        sessionList.activeSessionId = sessionId
+    }
+
+    function ensureSession() {
+        if (currentSessionId === "") {
+            currentSessionId = history.createSession()
+        }
+        return currentSessionId
     }
 
     RowLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Sidebar — palette.base (darkest)
+        // Sidebar — palette.base
         Rectangle {
             Layout.preferredWidth: Theme.sidebarWidth
             Layout.fillHeight: true
@@ -83,7 +121,7 @@ ApplicationWindow {
 
                     ToolButton {
                         icon.name: "list-add"
-                        onClicked: { client.newSession(); messages.clear() }
+                        onClicked: newSession()
                         ToolTip.text: "New session (Ctrl+N)"
                         ToolTip.visible: hovered
                     }
@@ -94,7 +132,6 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.leftMargin: Theme.spacingMd
                     Layout.rightMargin: Theme.spacingMd
-                    Layout.topMargin: Theme.spacingXs
                     Layout.bottomMargin: Theme.spacingSm
                     spacing: Theme.spacingSm
 
@@ -114,28 +151,50 @@ ApplicationWindow {
                     }
                 }
 
-                // Sessions list area — palette.alternateBase (mid tone)
+                // Sessions list — palette.alternateBase
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     color: palette.alternateBase
 
-                    Label {
-                        anchors.centerIn: parent
-                        text: "No sessions yet"
-                        opacity: 0.3
-                        font.pixelSize: Theme.fontSm
+                    SessionList {
+                        id: sessionList
+                        anchors.fill: parent
+                        historyStore: history
+
+                        onSessionSelected: (sessionId) => loadSession(sessionId)
+                        onSessionDeleted: (sessionId) => {
+                            history.deleteSession(sessionId)
+                            if (currentSessionId === sessionId) {
+                                newSession()
+                            }
+                            refreshSessions()
+                        }
                     }
                 }
             }
         }
 
-        // Main chat area — palette.window (standard)
+        // Main chat area — palette.window
         ChatView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             messageModel: messages
             client: client
+            historyStore: history
+
+            onMessageSent: (text) => {
+                const sid = ensureSession()
+                history.saveMessage(sid, "user", text)
+                refreshSessions()
+                sessionList.activeSessionId = sid
+            }
+
+            onResponseComplete: (text) => {
+                const sid = ensureSession()
+                history.saveMessage(sid, "assistant", text)
+                refreshSessions()
+            }
         }
     }
 }

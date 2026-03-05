@@ -7,7 +7,11 @@ Rectangle {
 
     required property var messageModel
     required property var client
+    required property var historyStore
     color: palette.window
+
+    signal messageSent(string text)
+    signal responseComplete(string text)
 
     ColumnLayout {
         anchors.fill: parent
@@ -64,11 +68,10 @@ Rectangle {
             }
         }
 
-        // Input area — palette.base (darker, like kcalc display)
+        // Input area — palette.base
         Rectangle {
             Layout.fillWidth: true
             color: palette.base
-
             implicitHeight: inputRow.implicitHeight + Theme.spacingMd * 2
 
             RowLayout {
@@ -123,8 +126,8 @@ Rectangle {
         }
     }
 
-    // Track streaming assistant message index
     property int streamingIndex: -1
+    property string pendingResponse: ""
 
     Connections {
         target: root.client
@@ -133,7 +136,9 @@ Rectangle {
             if (root.streamingIndex < 0) {
                 root.messageModel.appendMessage("assistant", "")
                 root.streamingIndex = root.messageModel.lastIndex()
+                root.pendingResponse = ""
             }
+            root.pendingResponse += token
             root.messageModel.appendDelta(root.streamingIndex, token)
         }
 
@@ -141,6 +146,10 @@ Rectangle {
             if (root.streamingIndex >= 0) {
                 root.messageModel.finalise(root.streamingIndex)
                 root.streamingIndex = -1
+                if (root.pendingResponse.length > 0) {
+                    root.responseComplete(root.pendingResponse)
+                }
+                root.pendingResponse = ""
             }
             inputField.forceActiveFocus()
         }
@@ -150,6 +159,7 @@ Rectangle {
             if (root.streamingIndex >= 0) {
                 root.messageModel.finalise(root.streamingIndex)
                 root.streamingIndex = -1
+                root.pendingResponse = ""
             }
         }
     }
@@ -160,6 +170,7 @@ Rectangle {
 
         errorLabel.text = ""
         root.messageModel.appendMessage("user", text)
+        root.messageSent(text)
         root.client.sendMessage(text)
         inputField.text = ""
     }

@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void sendMessage(const QString &prompt);
     Q_INVOKABLE void cancel();
     Q_INVOKABLE void newSession();
+    Q_INVOKABLE void restoreMessage(const QString &role, const QString &content);
 
 signals:
     void apiKeyChanged();

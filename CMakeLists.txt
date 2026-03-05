@@ -21,10 +21,12 @@ qt_add_qml_module(koworker
     SOURCES
         src/MessageModel.h src/MessageModel.cpp
         src/AnthropicClient.h src/AnthropicClient.cpp
+        src/HistoryStore.h src/HistoryStore.cpp
     QML_FILES
         qml/Main.qml
         qml/ChatView.qml
         qml/MessageDelegate.qml
+        qml/SessionList.qml
         qml/SettingsDialog.qml
         qml/Theme.qml
 )

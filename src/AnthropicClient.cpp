@@ -95,6 +95,14 @@ void AnthropicClient::newSession()
     m_pendingResponse.clear();
 }
 
+void AnthropicClient::restoreMessage(const QString &role, const QString &content)
+{
+    QJsonObject msg;
+    msg[QStringLiteral("role")] = role;
+    msg[QStringLiteral("content")] = content;
+    m_messages.append(msg);
+}
+
 void AnthropicClient::handleReadyRead()
 {
     if (!m_reply) return;
