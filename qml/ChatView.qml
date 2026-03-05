@@ -6,6 +6,7 @@ Item {
     id: root
 
     required property var messageModel
+    required property var client
 
     ColumnLayout {
         anchors.fill: parent
@@ -27,7 +28,6 @@ Item {
                 isStreaming: model.isStreaming
             }
 
-            // Auto-scroll to bottom on new content
             onCountChanged: {
                 Qt.callLater(() => messageList.positionViewAtEnd())
             }
@@ -39,6 +39,31 @@ Item {
                 text: "Start a conversation"
                 color: Theme.textMuted
                 font.pixelSize: Theme.fontLg
+            }
+        }
+
+        // Error bar
+        Rectangle {
+            id: errorBar
+            Layout.fillWidth: true
+            height: errorBar.visible ? errorLabel.implicitHeight + Theme.spacingMd * 2 : 0
+            color: "#4d331a"
+            visible: errorLabel.text.length > 0
+
+            Label {
+                id: errorLabel
+                anchors {
+                    fill: parent
+                    margins: Theme.spacingMd
+                }
+                color: "#ffaa55"
+                font.pixelSize: Theme.fontSm
+                wrapMode: Text.Wrap
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                onClicked: errorLabel.text = ""
             }
         }
 
@@ -62,11 +87,12 @@ Item {
                 TextArea {
                     id: inputField
 
-                    placeholderText: "Type a message..."
+                    placeholderText: "Type a message... (Ctrl+Enter to send)"
                     wrapMode: TextArea.Wrap
                     color: Theme.textPrimary
                     placeholderTextColor: Theme.textMuted
                     font.pixelSize: Theme.fontMd
+                    enabled: !root.client.running
 
                     background: Rectangle {
                         radius: Theme.radiusMd
@@ -82,18 +108,22 @@ Item {
                             event.accepted = false
                         }
                     }
+
+                    Keys.onEscapePressed: {
+                        if (root.client.running) root.client.cancel()
+                    }
                 }
             }
 
             Button {
-                id: sendButton
+                id: actionButton
 
-                text: "Send"
-                enabled: inputField.text.trim().length > 0
+                text: root.client.running ? "Stop" : "Send"
+                enabled: root.client.running || inputField.text.trim().length > 0
 
                 contentItem: Text {
-                    text: sendButton.text
-                    color: sendButton.enabled ? Theme.textPrimary : Theme.textMuted
+                    text: actionButton.text
+                    color: actionButton.enabled ? Theme.textPrimary : Theme.textMuted
                     font.pixelSize: Theme.fontMd
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -103,10 +133,51 @@ Item {
                     implicitWidth: 72
                     implicitHeight: 36
                     radius: Theme.radiusMd
-                    color: sendButton.enabled ? Theme.accent : Theme.bgInput
+                    color: {
+                        if (!actionButton.enabled) return Theme.bgInput
+                        return root.client.running ? Theme.accentMuted : Theme.accent
+                    }
                 }
 
-                onClicked: sendMessage()
+                onClicked: {
+                    if (root.client.running) {
+                        root.client.cancel()
+                    } else {
+                        sendMessage()
+                    }
+                }
+            }
+        }
+    }
+
+    // Track streaming assistant message index
+    property int streamingIndex: -1
+
+    Connections {
+        target: root.client
+
+        function onTokenReceived(token) {
+            if (root.streamingIndex < 0) {
+                // Start a new assistant message
+                root.messageModel.appendMessage("assistant", "")
+                root.streamingIndex = root.messageModel.lastIndex()
+            }
+            root.messageModel.appendDelta(root.streamingIndex, token)
+        }
+
+        function onResponseFinished() {
+            if (root.streamingIndex >= 0) {
+                root.messageModel.finalise(root.streamingIndex)
+                root.streamingIndex = -1
+            }
+            inputField.forceActiveFocus()
+        }
+
+        function onErrorOccurred(error) {
+            errorLabel.text = error
+            if (root.streamingIndex >= 0) {
+                root.messageModel.finalise(root.streamingIndex)
+                root.streamingIndex = -1
             }
         }
     }
@@ -115,8 +186,9 @@ Item {
         const text = inputField.text.trim()
         if (text.length === 0) return
 
+        errorLabel.text = ""
         root.messageModel.appendMessage("user", text)
+        root.client.sendMessage(text)
         inputField.text = ""
-        inputField.forceActiveFocus()
     }
 }
